@@ -1,0 +1,6 @@
+#git+https://github.com/opentelekomcloud-community/otc-api-sign-sdk-python
+huaweicloudsdksmn
+#pycryptodome
+#requests
+#crcmod
+#esdk-obs-python @ git+https://github.com/huaweicloud/huaweicloud-sdk-python-obs.git#egg=esdk-obs-python\&subdirectory=src

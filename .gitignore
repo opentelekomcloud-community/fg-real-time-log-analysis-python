@@ -1,0 +1,8 @@
+.venv/
+target/
+.terraform*
+*.tfstate
+*.tfstate.backup
+.terraformrc
+terraform.rc
+*.log
