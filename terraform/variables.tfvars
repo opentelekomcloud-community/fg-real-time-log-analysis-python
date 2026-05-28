@@ -7,7 +7,7 @@ prefix        = "py"
 function_name = "real-time-log-analysis"
 
 # name of zip file to deploy
-zip_file_name = "target/code.zip"
+zip_file_name = "dist/code.zip"
 
 # resources will be tagged with this app_group tag
 tag_app_group = "real-time-log-analysis"

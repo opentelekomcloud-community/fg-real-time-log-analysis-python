@@ -1,2 +1,0 @@
-#git+https://github.com/opentelekomcloud-community/otc-api-sign-sdk-python
-huaweicloudsdksmn

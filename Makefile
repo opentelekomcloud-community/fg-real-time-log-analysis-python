@@ -1,4 +1,4 @@
-# Makefile for Terraform deployment of the Container Event Function sample
+SHELL := /bin/bash
 
 # Terraform backend configuration
 BACKEND_CONFIG_BUCKET := "doc-samples-tf-backend"
@@ -8,7 +8,7 @@ BACKEND_CONFIG_ENDPOINTS := "endpoints={s3=\"https://obs.eu-de.otc.t-systems.com
 
 CURRENT_MAKEFILE := $(firstword $(MAKEFILE_LIST))
 
-zip:
+create_package:
 	python3 createZip.py
 
 tf_init:
@@ -27,7 +27,7 @@ tf_plan:
 	  plan \
 		-var-file="variables.tfvars" 
 
-tf_apply: zip
+tf_apply: create_package
 	if [ ! -f "terraform/.terraform.lock.hcl" ]; then \
 		$(MAKE) -f $(CURRENT_MAKEFILE) tf_init; \
 	fi
@@ -40,4 +40,4 @@ tf_destroy:
 	  destroy -auto-approve \
 		-var-file="variables.tfvars"
 
-.PHONY: tf_init tf_plan tf_apply tf_destroy
+.PHONY: tf_init tf_plan tf_apply tf_destroy create_package

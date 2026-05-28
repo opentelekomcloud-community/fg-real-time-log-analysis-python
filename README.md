@@ -4,7 +4,7 @@ This solution helps you with serverless architecture to collect, analyze, alert,
 
 ## Architecture diagram
 
-![Overview](document/overview.drawio.svg)
+![Overview](doc/overview.drawio.svg)
 
 ## Architecture Description
 This solution will deploy the following resources:
@@ -17,9 +17,11 @@ This solution will deploy the following resources:
 
 ## Prerequisites
 
-- Python 3.10 installed
-- Terraform installed
-- 
+Following tools should be installed:
+
+- Python 3.10
+- Terraform
+- make
 
 
 ### Check out code
@@ -31,7 +33,17 @@ git clone https://github.com/opentelekomcloud-community/fg-real-time-log-analysi
 In folder  ```fg-real-time-log-analysis-python``` create a virtual environment using:
 
 ```bash
+# create venv in folder .venv
 python3 -m venv .venv
+
+# activate virtual environment
+source ./venv/bin/activate
+```
+
+install requirements
+
+```bash
+python3 -m pip install -r requirements.txt
 ```
 
 ## Deployment
@@ -123,3 +135,13 @@ to destroy afterwards
 ```bash
 make tf_destroy
 ```
+
+
+
+> Warranty Disclaimer
+> -------------------
+> THE OPEN SOURCE SOFTWARE IN THIS PRODUCT IS DISTRIBUTED IN THE HOPE THAT IT
+> WILL BE USEFUL,BUT WITHOUT ANY WARRANTY; WITHOUT EVEN THE IMPLIED WARRANTY
+> OF MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE.
+> 
+> SEE THE APPLICABLE LICENSES FOR MORE DETAILS.

@@ -8,9 +8,9 @@ resource "opentelekomcloud_fgs_function_v2" "FG_ANALYSE" {
 
   agency = opentelekomcloud_identity_agency_v3.agency.name
 
-  handler = "src/main.handler"
+  handler = "src/index.handler"
 
-  initializer_handler = "src/main.initializer"
+  initializer_handler = "src/index.initializer"
   initializer_timeout = 30
 
   runtime = "Python3.10"
@@ -19,7 +19,7 @@ resource "opentelekomcloud_fgs_function_v2" "FG_ANALYSE" {
   func_code     = filebase64(format("${path.module}/../%s", var.zip_file_name))
   code_filename = basename(var.zip_file_name)
 
-  description      = "Sample real time log analysis"
+  description      = "Sample for real time log analysis in python"
   memory_size      = 128
   timeout          = 120
   max_instance_num = 10

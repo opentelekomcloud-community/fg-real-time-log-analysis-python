@@ -1,4 +1,4 @@
-#!.venv/bin/python3
+#!/usr/bin/env python3
 #######################################################################
 # Create zip file for function code and dependencies
 # - create dependencies if requirements.txt changed
@@ -12,110 +12,92 @@
 # └── <installed packages from requirements.txt> 
 #
 #######################################################################
-import os
-import subprocess
+
+from __future__ import annotations
+
 import hashlib
 import shutil
-
+import subprocess
+import sys
+from pathlib import Path
 from zipfile import ZIP_DEFLATED, ZipFile
 
 
-TARGET_FOLDER = "./target"
-OUTPUT_ZIP = f"{TARGET_FOLDER}/code.zip"
-ZIP_HASH_FILE = f"{TARGET_FOLDER}/.zip_hash"
+ROOT = Path(__file__).resolve().parent
+DIST_DIR = ROOT / "dist"
+DEPENDENCIES_DIR = DIST_DIR / "dependencies"
+VENV_DIR = DIST_DIR / ".venv_dest"
+REQUIREMENTS_FILE = ROOT / "requirements.txt"
+REQUIREMENTS_HASH_FILE = DIST_DIR / ".requirements_hash"
+CODE_ZIP = DIST_DIR / "code.zip"
+OPTIONAL_FILES = ("README.md", "LICENSE", "bootstrap")
 
-REQUIREMENTS_FILE = "./requirements.txt"
-REQUIREMENTS_HASH_FILE = f"{TARGET_FOLDER}/.requirements_hash"
 
-DEPENDENCIES = "dependencies"
-DEPENDENCIES_FOLDER = f"{TARGET_FOLDER}/{DEPENDENCIES}"
+def sha1(path: Path) -> str:
+    return hashlib.sha1(path.read_bytes()).hexdigest()
 
 
-####################################################################
-# Zip Code and dependencies
-####################################################################
-def createZippedFunctionCode():
-    requirements_hash = hashlib.md5(open(REQUIREMENTS_FILE, "rb").read()).hexdigest()
-    OLD_requirements_hash = ""
-    if os.path.exists(REQUIREMENTS_HASH_FILE):
-        with open(REQUIREMENTS_HASH_FILE, "r") as f:
-            OLD_requirements_hash = f.read().strip()
+def requirements_changed(new_hash: str) -> bool:
+    if not REQUIREMENTS_HASH_FILE.exists():
+        return True
+    return REQUIREMENTS_HASH_FILE.read_text(encoding="utf-8").strip() != new_hash
 
-    if requirements_hash != OLD_requirements_hash:
-        print(f"Changes in {REQUIREMENTS_FILE} - updating dependencies")
 
-        shutil.rmtree(TARGET_FOLDER, ignore_errors=True)
+def install_dependencies() -> None:
+    shutil.rmtree(VENV_DIR, ignore_errors=True)
+    shutil.rmtree(DEPENDENCIES_DIR, ignore_errors=True)
 
-        os.makedirs(DEPENDENCIES_FOLDER, exist_ok=True)
-        # create dependencies
-        p = subprocess.run(
-            [f"python3 -m pip install -t {DEPENDENCIES_FOLDER} --platform linux_x86_64 --only-binary=:all: -r {REQUIREMENTS_FILE}"],
-            shell=True,
-        )
+    subprocess.run([sys.executable, "-m", "venv", str(VENV_DIR)], check=True, cwd=ROOT)
 
-        if p.returncode != 0:
-            print(f"Error installing dependencies, returncode {p.returncode}")
-            exit(p.returncode)
+    venv_python = VENV_DIR / "bin" / "python"
+    subprocess.run(
+        [
+            str(venv_python),
+            "-m",
+            "pip",
+            "install",
+            "-r",
+            str(REQUIREMENTS_FILE),
+            "--target",
+            str(DEPENDENCIES_DIR),
+        ],
+        check=True,
+        cwd=ROOT,
+    )
 
-        # write new hash
-        with open(REQUIREMENTS_HASH_FILE, "w") as f:
-            f.write(requirements_hash)
 
+def add_tree(zip_file: ZipFile, base_dir: Path, arc_prefix: str = "") -> None:
+    for path in sorted(base_dir.rglob("*")):
+        if path.is_dir() or "__pycache__" in path.parts:
+            continue
+        relative_path = path.relative_to(base_dir)
+        archive_path = Path(arc_prefix) / relative_path if arc_prefix else relative_path
+        zip_file.write(path, archive_path.as_posix())
+
+
+def build_package() -> None:
+    DIST_DIR.mkdir(exist_ok=True)
+
+    new_hash = sha1(REQUIREMENTS_FILE)
+    if requirements_changed(new_hash):
+        print("Changes detected in requirements.txt, packaging dependencies.")
+        install_dependencies()
+        REQUIREMENTS_HASH_FILE.write_text(new_hash, encoding="utf-8")
     else:
-        print(f"No changes in {REQUIREMENTS_FILE} - skip updating dependencies")
+        print("No changes in requirements.txt, skipping venv creation.")
 
+    with ZipFile(CODE_ZIP, "w", compression=ZIP_DEFLATED) as zip_file:
+        add_tree(zip_file, ROOT / "src", "src")
+        if DEPENDENCIES_DIR.exists():
+            add_tree(zip_file, DEPENDENCIES_DIR)
 
-    CURRENT_FOLDER=os.getcwd()
-    print(f"Current folder: {CURRENT_FOLDER}")
-    
-    with ZipFile(OUTPUT_ZIP, "w", ZIP_DEFLATED) as zip:
-        # add files from folder src
-        src = "./src"
-        for dirname, subdirs, files in os.walk(src):
-            for filename in files:
-                absname = os.path.abspath(os.path.join(dirname, filename))
-                arcname = absname[absname.rindex(f"{CURRENT_FOLDER}") + len(f"{CURRENT_FOLDER}") :]
-                # print("zipping %s as %s" % (os.path.join(dirname, filename), arcname))
-                if (
-                     "__pycache__" not in absname 
-                     and "__pycache__" not in arcname
-                     and "bootstrap" not in arcname
-                ):
-                    #print("zipping %s as %s" % (os.path.join(dirname, filename), arcname))
-                    zip.write(absname, arcname)
+        for name in OPTIONAL_FILES:
+            path = ROOT / name
+            if path.is_file():
+                zip_file.write(path, name)
 
-        # add files from dependencies
-        FULL_DEPENDENCIES_FOLDER=f"{CURRENT_FOLDER}/target/{DEPENDENCIES}"
-        for dirname, subdirs, files in os.walk(DEPENDENCIES_FOLDER):
-            for filename in files:
-                absname = os.path.abspath(os.path.join(dirname, filename))
-                arcname = absname[
-                    # remove all parent folder names from absname
-                    absname.rindex(f"{FULL_DEPENDENCIES_FOLDER}/") + len(f"{FULL_DEPENDENCIES_FOLDER}/") :
-                ]
-                # arcname = f"dependencies/{arcname}"                
-                # put all dependencies to root of zip file
-                arcname = f"{arcname}"
-                if (
-                    #not arcname.startswith("pip") and
-                    not arcname.startswith("_distutils")
-                    and not arcname.startswith("setuptools")
-                    #and ".dist-info" not in absname
-                    and "__pycache__" not in absname
-                    and "__pycache__" not in arcname
-                ):
-                    #print("zipping %s as %s      --- %s"  % (os.path.join(dirname, filename), arcname, absname))
-                    zip.write(absname, arcname)
-                    
-        zip.write("./README.md", "README.md")
-    
-    print(f"created: {OUTPUT_ZIP}")
-    
-    zip_hash = hashlib.md5(open(OUTPUT_ZIP, "rb").read()).hexdigest()
-    
-    with open(ZIP_HASH_FILE, "w") as f:
-            f.write(zip_hash)
+    print(f"Packaged code and dependencies into {CODE_ZIP.relative_to(ROOT)}")
 
 
 if __name__ == "__main__":
-    createZippedFunctionCode()
+    build_package()

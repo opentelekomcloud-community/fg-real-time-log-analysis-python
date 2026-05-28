@@ -6,3 +6,4 @@ target/
 .terraformrc
 terraform.rc
 *.log
+dist/

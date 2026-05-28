@@ -11,7 +11,7 @@ resource "opentelekomcloud_fgs_function_v2" "FG_PRODUCE" {
   runtime = "Python3.10"
 
   code_type     = "inline"
-  func_code     = filebase64(format("${path.module}/fg_produce_cody.py"))
+  func_code     = filebase64(format("${path.module}/fg_produce_code.py"))
   code_filename = "index.py"
 
   description      = "Test producer function for FunctionGraph"
