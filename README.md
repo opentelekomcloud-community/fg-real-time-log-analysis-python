@@ -13,7 +13,9 @@ This solution will deploy the following resources:
 - FunctionGraph (with test events) writing logs to auditing log stream 
 - FunctionGraph with LTS trigger listening on auditing log stream
 - OBS bucket in Object Storage Service (OBS) to store alarm logs in OBS object;
-- Topic and Subscription in the SMN message notification service to push alarm information from the logs as email;
+- SMN Topic and Subscription in the  Simple Message Notification service (SMN) to push alarm information from the logs as email;
+- IAM Agency with permissions for OBS and SMN
+- some test events for the FunctionGraph functions.
   
 
 ## Prerequisites
@@ -26,10 +28,10 @@ This sample assumes you are using a linux environment, like
 Following tools should be installed:
 
 - Python 3.10
-- Terraform
-- make
-- zip
-- curl (if proxy needed add ```proxy=<YOUR_PROXY>``` to file ~/.curlrc)
+- Terraform (recommended: >= 1.5)
+- `make`
+- `zip`
+- `curl` (if proxy needed add ```proxy=<YOUR_PROXY>``` to file ~/.curlrc)
 - [s3cmd](s3tools.org) with following configuration in file ~/.s3cfg
   (here sample for region eu-de):
   ```ini
@@ -38,14 +40,17 @@ Following tools should be installed:
   use_https = True
   bucket_location = eu-de
   ```
+- optional: [jq](https://jqlang.org/)  
 
-### Check out code
+### Get the code
+
+Clone the code from GitHub:
 
 ```bash
 git clone https://github.com/opentelekomcloud-community/fg-real-time-log-analysis-python.git
 ```
 
-In folder  ```fg-real-time-log-analysis-python``` create a virtual environment using:
+From the repository root, install Python dependencies used for packaging:
 
 ```bash
 # create venv in folder .venv
@@ -53,22 +58,15 @@ python3 -m venv .venv
 
 # activate virtual environment
 source ./venv/bin/activate
-```
 
-install requirements
-
-```bash
+#install requirements
 python3 -m pip install -r requirements.txt
 ```
 
-## Deployment
 
-This solution can be deployed using Terraform
+## Deploy resources using Terraform on T Cloud Public
 
-### Prerequisites
-
-
-#### Define Environment variables
+### Set Required Environment Variables
 
 Following variables ate used to configure the terraform provider [see provider.tf](terraform/provider.tf)
 
@@ -103,12 +101,13 @@ Additional variables for testing in make:
 | OTC_SDK_PROJECTID     | id of Project
 | OTC_IAM_ENDPOINT      | e.g. https://iam.eu-de.otc.t-systems.com/v3
 
+### Prepare Terraform Remote State Backend (OBS)
 
-
-#### Create bucket to store tf state
-
+The Terraform backend is configured as S3-compatible OBS in `terraform/provider.tf`.
 Create state bucket either using OBS console or 
 using the CLI with command [s3cmd](https://s3tools.org/s3cmd) 
+
+Example with `s3cmd`:
 
 ```bash
 s3cmd \
@@ -118,7 +117,7 @@ s3cmd \
   mb s3://<bucket_name>
 ```
 
-#### Adapt Makefile
+### Configure Backend Values in Makefile
 
 Adapt [Makefile](./Makefile)
 
@@ -129,15 +128,19 @@ Adapt [Makefile](./Makefile)
 | BACKEND_CONFIG_REGION    | "eu-de"                                                  | REGION
 | BACKEND_CONFIG_ENDPOINTS | "endpoints={s3=\"https://obs.eu-de.otc.t-systems.com\"}" | OBS Endpoint
 
-#### Adapt variables.tfvars
+### Adapt variables.tfvars
 
-Adapt [terraform/variables.tfvars](./terraform/variables.tfvars) if needed.
+Adapt [terraform/variables.tfvars](./terraform/variables.tfvars) if needed:
 
-#### Adapt function.tf
+- `prefix`
+- `function_name`
+- `zip_file_name` (default is `dist/code.zip`)
+- `tag_app_group`
+
+### Adapt function.tf
 
 Adapt [terraform/function.tf](./terraform/function.tf) if needed.
 
-in 
 ```
 resource "opentelekomcloud_fgs_function_v2" "FG_ANALYSE" {
 
@@ -153,17 +156,23 @@ resource "opentelekomcloud_fgs_function_v2" "FG_ANALYSE" {
 }
 ```
 
-### Terraform deployment
+### Deploy with Make Targets (Recommended)
 
-To deploy run
+From the repository root:
 
 ```bash
+# Create deployment package and apply Terraform
 make tf_apply
+
 ```
+What this does:
+
+- Builds the deployment package zip via `createZip.py`
+- Runs `terraform init` (if needed) with backend config
+- Runs `terraform apply -auto-approve -var-file="variables.tfvars"`
 
 
-
-#### Test
+#### Verify Deployment
 
 Following files need execution rights:
 
@@ -172,8 +181,7 @@ chmod +x ./utils/tokenFromUsername.sh
 chmod +x ./utils/catOBSfile.sh
 ```
 
-The makefile provides some test targets:
-
+The Makefile provides some test targets:
 
 ```bash
 # create a info message
@@ -192,15 +200,22 @@ make list_log_objects
 make display_log_object file=s3://py-real-time-log-analysis-logbucket/log/log-20260526153715954004-546709.log
 ```
 
-### final
+## Clean up
 
-Don't forget to delete resources afterwards.
+When you're finished working with the example function, delete it. 
 
 This can be done using:
 
 ```bash
 make tf_destroy
 ```
+
+
+## Troubleshooting
+
+- `terraform init` fails on backend: verify OBS bucket exists and backend endpoint/region values match your OTC region.
+- Authentication errors: verify `TF_VAR_OTC_SDK_AK`/`TF_VAR_OTC_SDK_SK` and IAM endpoint.
+- Email alerts not received: verify `TF_VAR_SMN_EMAIL_ADDRESS` and subscription confirmation in SMN.
 
 
 > Warranty Disclaimer
