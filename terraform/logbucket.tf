@@ -11,3 +11,7 @@ resource "opentelekomcloud_s3_bucket" "logbucket" {
   }
 
 }
+
+output "logbucket_name" {
+  value = opentelekomcloud_s3_bucket.logbucket.bucket
+}

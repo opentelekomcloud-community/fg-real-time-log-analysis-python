@@ -9,20 +9,35 @@ This solution helps you with serverless architecture to collect, analyze, alert,
 ## Architecture Description
 This solution will deploy the following resources:
 
-- Create an OBS bucket in Object Storage Service (OBS) to store alarm logs;
-- Function workflows allow users to run in a flexible, maintenance-free, and highly reliable manner simply by writing business function code and setting the running conditions.
-- Create a topic in the SMN message notification service to push alarm information from the logs;
-- Create Cloud Log Service (LTS) log groups and log streams to manage the collected logs.
-
+- LTS Log Group and two log streams, one for auditing and one for protocol
+- FunctionGraph (with test events) writing logs to auditing log stream 
+- FunctionGraph with LTS trigger listening on auditing log stream
+- OBS bucket in Object Storage Service (OBS) to store alarm logs in OBS object;
+- Topic and Subscription in the SMN message notification service to push alarm information from the logs as email;
+  
 
 ## Prerequisites
+
+This sample assumes you are using a linux environment, like
+
+- Ubuntu
+- Windows Subsystem for Linux (wsl2) with Ubuntu
 
 Following tools should be installed:
 
 - Python 3.10
 - Terraform
 - make
-
+- zip
+- curl (if proxy needed add ```proxy=<YOUR_PROXY>``` to file ~/.curlrc)
+- [s3cmd](s3tools.org) with following configuration in file ~/.s3cfg
+  (here sample for region eu-de):
+  ```ini
+  [default]
+  host_base = obs.eu-de.otc.t-systems.com
+  use_https = True
+  bucket_location = eu-de
+  ```
 
 ### Check out code
 
@@ -57,7 +72,7 @@ This solution can be deployed using Terraform
 
 Following variables ate used to configure the terraform provider [see provider.tf](terraform/provider.tf)
 
-| Environment Variable        |                             |
+| Environment Variable        | Value                       |
 | --------------------------- | --------------------------- | 
 | TF_VAR_OTC_SDK_AK           | [Access Key](https://docs.otc.t-systems.com/api-usage/guidelines/calling_apis/ak_sk_authentication/generating_an_ak_and_sk.html)
 | TF_VAR_OTC_SDK_SK           | [Secret Key](https://docs.otc.t-systems.com/api-usage/guidelines/calling_apis/ak_sk_authentication/generating_an_ak_and_sk.html)
@@ -70,9 +85,25 @@ Following variables ate used to configure the terraform provider [see provider.t
 | AWS_REQUEST_CHECKSUM_CALCULATION  | "when_required"
 | AWS_SECRET_ACCESS_KEY             | "when_required"
 
-| Environment Variable        |                             |
+Additional variables:
+
+| Environment Variable        | Value                       |
 | --------------------------- | --------------------------- |
 | TF_VAR_SMN_EMAIL_ADDRESS    | email address for smn       |
+
+
+Additional variables for testing in make:
+| Environment Variable  | Value                       |
+| --------------------- | --------------------------- |        
+| OTC_USER_NAME         | your username
+| OTC_USER_PASSWORD     | your password
+| OTC_SDK_REGION        | e.g. eu-de
+| OTC_DOMAIN_NAME       | e.g. OTC000...
+| OTC_SDK_PROJECTNAME   | e.g. eu-de_YOURPROJECT
+| OTC_SDK_PROJECTID     | id of Project
+| OTC_IAM_ENDPOINT      | e.g. https://iam.eu-de.otc.t-systems.com/v3
+
+
 
 #### Create bucket to store tf state
 
@@ -130,12 +161,46 @@ To deploy run
 make tf_apply
 ```
 
-to destroy afterwards
+
+
+#### Test
+
+Following files need execution rights:
+
+```bash
+chmod +x ./utils/tokenFromUsername.sh
+chmod +x ./utils/catOBSfile.sh
+```
+
+The makefile provides some test targets:
+
+
+```bash
+# create a info message
+make test_deployed_info
+
+# create a warning message
+make test_deployed_warn
+
+# create a error message
+make test_deployed_error
+
+# list all files in bucket
+make list_log_objects
+
+# display log from object (use output from list_log_object)
+make display_log_object file=s3://py-real-time-log-analysis-logbucket/log/log-20260526153715954004-546709.log
+```
+
+### final
+
+Don't forget to delete resources afterwards.
+
+This can be done using:
 
 ```bash
 make tf_destroy
 ```
-
 
 
 > Warranty Disclaimer
