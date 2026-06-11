@@ -22,10 +22,6 @@ resource "opentelekomcloud_identity_agency_v3" "agency" {
 
   name        = format("%s-%s-agency", var.prefix, var.function_name)
   description = format("Agency for FunctionGraph function %s", var.function_name)
-  # domain_roles = [
-  #   "OBS OperateAccess",
-  #   "LTS FullAccess"
-  # ]
 
   project_role {
     all_projects = true
@@ -37,4 +33,12 @@ resource "opentelekomcloud_identity_agency_v3" "agency" {
     ]
   }
 
+}
+
+output "agency_id" {
+  value = opentelekomcloud_identity_agency_v3.agency.id
+}
+
+output "agency_name" {
+  value = opentelekomcloud_identity_agency_v3.agency.name
 }

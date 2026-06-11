@@ -10,8 +10,8 @@ resource "opentelekomcloud_fgs_function_v2" "FG_ANALYSE" {
 
   handler = "src/index.handler"
 
-  initializer_handler = "src/index.initializer"
-  initializer_timeout = 30
+  initializer_handler = null
+  initializer_timeout = null
 
   runtime = "Python3.10"
 

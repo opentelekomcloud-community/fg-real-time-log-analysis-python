@@ -27,11 +27,11 @@ When the LTS trigger triggers the function, the event structure is as follows:
 """
 
 import json
-import time
 import random
 import base64
-from obs import ObsClient
 from datetime import datetime
+
+from obs import ObsClient
 
 from huaweicloudsdkcore.auth.credentials import BasicCredentials
 
@@ -44,11 +44,6 @@ from huaweicloudsdksmn.v2 import (
 LOGGER_PREFIX = "log"  # The prefix of log file stored in obs, you can change it as you like, for example, "mylog"
 ALARM_LOG_KEY = ["WARN", "WRN", "ERROR", "ERR"]  # If the log contains these keywords, it will be considered as an alarm log and stored in obs, you can change it as you like
 SMN_SUBJECT = "FunctionGraph Log Analysis Alarm"
-
-
-def initializer(context):
-    log = context.getLogger()
-    log.info("Initializer started")
 
 
 def handler(event, context):

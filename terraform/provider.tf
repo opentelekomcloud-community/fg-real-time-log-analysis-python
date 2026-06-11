@@ -47,18 +47,13 @@ variable "OTC_IAM_ENDPOINT" {
 
 terraform {
   required_providers {
-
-    random = {
-      source  = "hashicorp/random"
-      version = "~> 3.6"
-    }
     
     # specifies required provider, source and version
     # see https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/latest
 
     opentelekomcloud = {
       source  = "opentelekomcloud/opentelekomcloud"
-      version = ">= 1.36.57"
+      version = ">= 1.36.68"
     }
   }
   backend "s3" {
