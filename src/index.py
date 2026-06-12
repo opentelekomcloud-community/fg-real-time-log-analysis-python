@@ -29,17 +29,11 @@ When the LTS trigger triggers the function, the event structure is as follows:
 import json
 import random
 import base64
+import requests
 from datetime import datetime
 
 from obs import ObsClient
 
-from huaweicloudsdkcore.auth.credentials import BasicCredentials
-
-from huaweicloudsdksmn.v2 import (
-    SmnClient,
-    PublishMessageRequestBody,
-    PublishMessageRequest,
-)
 
 LOGGER_PREFIX = "log"  # The prefix of log file stored in obs, you can change it as you like, for example, "mylog"
 ALARM_LOG_KEY = ["WARN", "WRN", "ERROR", "ERR"]  # If the log contains these keywords, it will be considered as an alarm log and stored in obs, you can change it as you like
@@ -52,21 +46,34 @@ def handler(event, context):
     log.info("Received event: " + json.dumps(event))
 
     obs_address = context.getUserData("obs_address")
-    obs_bucket = context.getUserData("obs_store_bucket")
+    obs_store_bucket = context.getUserData("obs_store_bucket")
     
     bucket_endpoint = context.getUserData("obs_store_bucket_endpoint")
 
-    if not obs_address or not obs_bucket:
-        raise Exception("Please configure obs environment variable")
+    if not obs_address:
+        raise Exception("Please configure obs_address environment variable")
+      
+    if not obs_store_bucket:
+        raise Exception("Please configure obs_store_bucket environment variable")  
 
-    if not context.getAccessKey() or not context.getSecretKey():
-        raise Exception("Can not get accessKey or secretKey. Please check agency")
+    if not context.getSecurityAccessKey():
+        raise Exception("Can not get SecurityAccessKey. Please check agency")
+
+    if not context.getSecuritySecretKey():
+        raise Exception("Can not get SecuritySecretKey. Please check agency")
+    
+    if not context.getSecurityToken():
+      raise Exception("Can not get SecurityToken. Please check agency")
+     
+    if not context.getToken():
+        raise Exception("Can not get Token. Please check agency")
 
     if not context.getUserData("smn_urn"):
-        raise Exception("Please configure SMN  environment variable")
+        raise Exception("Please configure smn_urn  environment variable")
 
-    
-    
+    if not context.getUserData("smn_endpoint"):
+        raise Exception("Please configure smn_endpoint  environment variable")
+        
     # get the data from lts logs.
     encodingData = event["lts"]["data"]
     data_based = base64.b64decode(encodingData)
@@ -86,23 +93,26 @@ def handler(event, context):
         server=obs_address,
     )
     
-    smn_client = new_smn_client(context)
-    
-    
-    
     for alarm in alarm_logs:        
         object_name = gen_log_name()
         logs_str = json.dumps(alarm)
 
-        res = upload_content_to_obs(obs_client, obs_bucket, logs_str, object_name)
+        res = upload_content_to_obs(obs_client, obs_store_bucket, logs_str, object_name)
 
         log.info(
-            f"Upload log to obs, bucket: {obs_bucket}, object name: {object_name}, result: {res}"
+            f"Upload log to obs, bucket: {obs_store_bucket}, object name: {object_name}, result: {res}"
         )
 
-        send_smn_msg(context, smn_client, logs_str, f"{bucket_endpoint}/{object_name}")
+        send_smn_msg(context, logs_str, f"https://{bucket_endpoint}/{object_name}")
 
-    return "alarm success"
+    return {
+        "statusCode": 200,
+        "isBase64Encoded": False,
+        "body": "ok",
+        "headers": {
+            "Content-Type": "application/json"
+        }
+    }
 
 # Analyze logs
 # iter logs, if it contain key words store it in list then return
@@ -138,7 +148,7 @@ def upload_content_to_obs(client: ObsClient, bucket_name, content, obj_name):
             print("=========source log============")
             print(content)
             return False
-    except:
+    except Exception:
         import traceback
 
         print(traceback.format_exc())
@@ -148,33 +158,12 @@ def upload_content_to_obs(client: ObsClient, bucket_name, content, obj_name):
     return True
 
 
-def new_smn_client(context):
-    credentials = (
-        BasicCredentials(
-            ak=context.getSecurityAccessKey(),
-            sk=context.getSecuritySecretKey(),
-            
-            project_id=context.getProjectID(),
-        )
-        .with_iam_endpoint(context.getUserData("iam_address"))
-        .with_security_token(context.getSecurityToken())
+def send_smn_msg(context, logs_str, log_obs_path):
         
-    )
-
-    client = (
-        SmnClient.new_builder()
-        .with_credentials(credentials)
-        .with_endpoint(context.getUserData("smn_address"))
-        .build()
-    )
-    return client
-
-
-def send_smn_msg(context, client, logs_str, log_obs_path):
-    print("start to send")
-    request = PublishMessageRequest()
-    request.topic_urn = context.getUserData("smn_urn")
+    endpoint = context.getUserData("smn_endpoint")
     
+    topic_urn = context.getUserData("smn_urn")
+    project_id = context.getProjectID()
     
     message = f"{SMN_SUBJECT} <br><br>"
     message += "<table>"
@@ -182,9 +171,23 @@ def send_smn_msg(context, client, logs_str, log_obs_path):
     message += f"<tbody><tr><td>{log_obs_path}</td><td>{logs_str}</td></tr></tbody>"
     message += "</table>"
     
+    url = f'https://{endpoint}/v2/{project_id}/notifications/topics/{topic_urn}/publish'
+    headers = {
+        "x-auth-token": context.getToken(),
+        "content-type": 'application/json'
+    }
     
-    request.body = PublishMessageRequestBody(
-        subject=SMN_SUBJECT, message=message
-    )
-    resp = client.publish_message(request)
+    msg = {
+        "subject": SMN_SUBJECT,
+        "message": message,
+        "time_to_live" : "120"
+    }
+    
+    resp = requests.post(url, json=msg, headers=headers)
+    if resp.status_code >= 400:
+        context.getLogger().error("Send msg failed,status code=" + str(resp.status_code) + ",body=" + str(resp.content))
+        return False
+
     print("smn response :", resp)
+    
+    return True

@@ -1,3 +1,1 @@
-huaweicloudsdksmn==3.1.196
-#esdk-obs-python @ git+https://github.com/huaweicloud/huaweicloud-sdk-python-obs.git#egg=esdk-obs-python\&subdirectory=src
 esdk-obs-python @ git+https://github.com/opentelekomcloud-community/obs-python-sdk.git#egg=esdk-obs-python\&subdirectory=src

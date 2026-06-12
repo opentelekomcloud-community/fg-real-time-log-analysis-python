@@ -147,10 +147,10 @@ resource "opentelekomcloud_fgs_function_v2" "FG_ANALYSE" {
   user_data = jsonencode({
     "RUNTIME_LOG_LEVEL" : "DEBUG",
     "obs_store_bucket" : opentelekomcloud_s3_bucket.logbucket.bucket,
-    "obs_address" : "https://obs.otc.t-systems.com",
+    "obs_store_bucket_endpoint" : "https://${opentelekomcloud_s3_bucket.logbucket.bucket_domain_name}",
+    "obs_address" : "obs.otc.t-systems.com",
     "smn_urn" : opentelekomcloud_smn_topic_v2.topic_1.topic_urn,
-    "iam_address" : "https://iam.otc.t-systems.com",
-    "smn_address" : "https://smn.eu-de.otc.t-systems.com",
+    "smn_endpoint" : "smn.eu-de.otc.t-systems.com"
   })
 
 }
