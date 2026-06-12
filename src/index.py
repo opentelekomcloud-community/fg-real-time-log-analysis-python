@@ -47,8 +47,6 @@ def handler(event, context):
 
     obs_address = context.getUserData("obs_address")
     obs_store_bucket = context.getUserData("obs_store_bucket")
-    
-    bucket_endpoint = context.getUserData("obs_store_bucket_endpoint")
 
     if not obs_address:
         raise Exception("Please configure obs_address environment variable")
@@ -103,7 +101,7 @@ def handler(event, context):
             f"Upload log to obs, bucket: {obs_store_bucket}, object name: {object_name}, result: {res}"
         )
 
-        send_smn_msg(context, logs_str, f"https://{bucket_endpoint}/{object_name}")
+        send_smn_msg(context, logs_str, f"obs://{obs_store_bucket}/{object_name}")
 
     return {
         "statusCode": 200,
